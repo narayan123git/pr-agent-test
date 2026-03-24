@@ -4,15 +4,46 @@ const mongoose = require('mongoose');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const Review = require('./models/Review');
 const crypto = require('crypto');
-// --- NEW SECURITY IMPORTS ---
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+
+// --- NEW SAAS IMPORTS ---
+const fs = require('fs');
+const jwt = require('jsonwebtoken');
+
+// Read your private key from the file we just renamed
+const privateKey = fs.readFileSync('./private-key.pem', 'utf8');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 app.set('trust proxy', 1);
+
+// --- SAAS TOKEN LOGIC ---
+// This function proves to GitHub that WE are the owners of the App
+function generateAppJWT() {
+    const payload = {
+        iat: Math.floor(Date.now() / 1000) - 60, 
+        exp: Math.floor(Date.now() / 1000) + (10 * 60), 
+        iss: process.env.GITHUB_APP_ID 
+    };
+    return jwt.sign(payload, privateKey, { algorithm: 'RS256' });
+}
+
+// This function gets a temporary "password" for a specific user's installation
+async function getInstallationToken(installationId) {
+    const appToken = generateAppJWT();
+    const response = await fetch(`https://api.github.com/app/installations/${installationId}/access_tokens`, {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${appToken}`,
+            'Accept': 'application/vnd.github.v3+json'
+        }
+    });
+    const data = await response.json();
+    return data.token;
+}
 
 // Connect to MongoDB
 mongoose.connect(process.env.MONGODB_URI)
@@ -91,10 +122,17 @@ app.post('/webhook', async (req, res) => {
         console.log(`🔍 PR #${prNumber} ${action} in ${repoFullName}. Fetching code changes...`);
 
         try {
-            // 1. Fetch Diff
+            // Get a fresh token for THIS specific user
+            const dynamicToken = await getInstallationToken(installationId);
+
+            // 1. Fetch Diff (Use the new dynamicToken)
             const diffResponse = await fetch(`https://api.github.com/repos/${repoFullName}/pulls/${prNumber}`, {
-                headers: { 'Accept': 'application/vnd.github.v3.diff' }
+                headers: { 
+                    'Accept': 'application/vnd.github.v3.diff',
+                    'Authorization': `Bearer ${dynamicToken}`
+                }
             });
+            
             const diffText = await diffResponse.text();
 
             console.log(`🧠 Sending diff to AI for review...`);
@@ -130,13 +168,11 @@ app.post('/webhook', async (req, res) => {
             const commentResponse = await fetch(`https://api.github.com/repos/${repoFullName}/issues/${prNumber}/comments`, {
                 method: 'POST',
                 headers: {
-                    'Authorization': `Bearer ${process.env.GITHUB_TOKEN}`,
+                    'Authorization': `Bearer ${dynamicToken}`,
                     'Accept': 'application/vnd.github.v3+json',
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ 
-                    body: `### 🤖 Autonomous AI Code Review\n\n${reviewText}` 
-                })
+                body: JSON.stringify({ body: `### 🤖 AI Code Review\n\n${reviewText}` })
             });
 
             if (commentResponse.ok) {
