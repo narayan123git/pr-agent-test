@@ -24,6 +24,10 @@ function DashboardContent() {
     const [loading, setLoading] = useState(false);
     const [reviews, setReviews] = useState<any[]>([]);
     const [customPrompt, setCustomPrompt] = useState('');
+    
+    // Cold start state
+    const [isDataLoading, setIsDataLoading] = useState(true);
+    const [showColdStartMessage, setShowColdStartMessage] = useState(false);
 
     // 3. Auto-fetch data ONLY if logged in
     useEffect(() => {
@@ -32,40 +36,50 @@ function DashboardContent() {
         // console.log('username', username);
 
         if (status === "authenticated" && username) {
+            let timeoutId: NodeJS.Timeout;
 
-            // Fetch User Settings
-            const fetchProfile = async () => {
+            const fetchData = async () => {
+                setIsDataLoading(true);
+                setShowColdStartMessage(false);
+
+                // Start 5-second timer to detect cold starts
+                timeoutId = setTimeout(() => {
+                    setShowColdStartMessage(true);
+                }, 5000);
+
                 try {
-                    const res = await axios.get(`${BACKEND_URL}/api/settings/${username}`, {
+                    // Fetch Settings
+                    const profileRes = await axios.get(`${BACKEND_URL}/api/settings/${username}`, {
                         headers: { 'x-saas-secret': process.env.NEXT_PUBLIC_FRONTEND_SECRET }
+                    }).catch(err => {
+                        if (err.response?.status !== 404) console.error("Error fetching profile:", err);
+                        return { data: null };
                     });
-                    if (res.data) {
-                        // If URL didn't provide an ID, use the DB one
-                        if (!urlInstallationId) setInstallationId(res.data.installationId || '');
-                        setGeminiKey(res.data.geminiKey || '');
-                        setCustomPrompt(res.data.customPrompt || '');
+                    
+                    if (profileRes?.data) {
+                        if (!urlInstallationId) setInstallationId(profileRes.data.installationId || '');
+                        setGeminiKey(profileRes.data.geminiKey || '');
+                        setCustomPrompt(profileRes.data.customPrompt || '');
                     }
-                } catch (err: any) {
-                    if (err.response?.status !== 404) {
-                        console.error("Error fetching profile:", err);
-                    }
+
+                    // Fetch Reviews
+                    const reviewsRes = await axios.get(`${BACKEND_URL}/api/reviews/${username}`, {
+                        headers: { 'x-saas-secret': process.env.NEXT_PUBLIC_FRONTEND_SECRET }
+                    }).catch(err => {
+                        console.error("Error fetching reviews. Ensure backend is running.");
+                        return { data: [] };
+                    });
+                    
+                    setReviews(reviewsRes?.data || []);
+                } finally {
+                    clearTimeout(timeoutId);
+                    setIsDataLoading(false);
                 }
             };
 
-            // Fetch AI Reviews for Analytics
-            const fetchReviews = async () => {
-                try {
-                    const res = await axios.get(`${BACKEND_URL}/api/reviews/${username}`, {
-                        headers: { 'x-saas-secret': process.env.NEXT_PUBLIC_FRONTEND_SECRET }
-                    });
-                    setReviews(res.data || []);
-                } catch (err) {
-                    console.error("Error fetching reviews. Ensure backend is running.");
-                }
-            };
-
-            fetchProfile();
-            fetchReviews();
+            fetchData();
+        } else if (status === "unauthenticated") {
+            setIsDataLoading(false);
         }
     }, [session, status, urlInstallationId]);
 
@@ -99,11 +113,18 @@ function DashboardContent() {
     const totalVulnerabilities = reviews.reduce((acc, rev) => acc + (rev.metrics?.vulnerabilityCount || 0), 0);
     const totalBugs = reviews.reduce((acc, rev) => acc + (rev.metrics?.bugsFound || 0), 0);
 
-    // --- STATE A: Loading Auth ---
-    if (status === "loading") {
+    // --- STATE A: Loading Auth & Data ---
+    if (status === "loading" || (status === "authenticated" && isDataLoading)) {
         return (
-            <div className="min-h-screen bg-black flex items-center justify-center text-white">
-                <Loader2 className="animate-spin text-indigo-500 mr-2" /> Authenticating...
+            <div className="min-h-screen bg-black flex flex-col items-center justify-center text-white">
+                <Loader2 className="animate-spin text-indigo-500 mb-4" size={32} />
+                <p className="text-neutral-400">
+                    {status === "loading" 
+                        ? "Authenticating..." 
+                        : showColdStartMessage 
+                            ? "Waking up secure server... this may take up to 50 seconds." 
+                            : "Loading dashboard data..."}
+                </p>
             </div>
         );
     }
@@ -142,9 +163,8 @@ function DashboardContent() {
                         <img src={session?.user?.image || ''} alt="Profile" className="w-12 h-12 rounded-xl border border-neutral-800" />
                         <div>
                             <h1 className="text-xl font-bold tracking-tight">Welcome, {session?.user?.name || 'Developer'}</h1>
-                            {/* @ts-ignore */}
                             <p className="text-xs text-emerald-400 flex items-center gap-1 mt-1">
-                                <ShieldCheck size={14} /> Verified as @{session?.user?.username}
+                                <ShieldCheck size={14} /> Verified as @{(session?.user as any)?.username}
                             </p>
                         </div>
                     </div>
