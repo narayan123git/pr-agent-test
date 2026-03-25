@@ -75,13 +75,20 @@ async function handleWebhook(req, res) {
             const repoFullName = req.body.repository.full_name;
             const installationId = req.body.installation.id;
 
-            console.log(`🔍 PR #${prNumber} in ${repoFullName}. Fetching code changes...`);
+            // 👇 NEW: Extract the unique ID for the specific code commit
+            const currentSha = req.body.pull_request.head.sha;
+
+            console.log(`🔍 PR #${prNumber} [Commit: ${currentSha.substring(0, 7)}] in ${repoFullName}...`);
 
             try {
-                // Idempotency: Check if we have already reviewed this PR
-                const existing = await Review.findOne({ prNumber: prNumber, repoName: repoFullName });
+                // 👇 FIXED IDEMPOTENCY: Check if this SPECIFIC COMMIT is already reviewed
+                const existing = await Review.findOne({
+                    repoName: repoFullName,
+                    commitSha: currentSha
+                });
+
                 if (existing) {
-                    console.log(`⚠️ Review already exists for PR #${prNumber} in ${repoFullName}. Skipping.`);
+                    console.log(`⚠️ Review already exists for commit ${currentSha.substring(0, 7)}. Skipping.`);
                     return;
                 }
 
@@ -89,21 +96,21 @@ async function handleWebhook(req, res) {
 
                 if (!userAccount || !userAccount.geminiKey) {
                     console.log(`⚠️ No Gemini Key found in database for this repo. Skipping review.`);
-                    return; 
+                    return;
                 }
 
                 const dynamicToken = await getInstallationToken(installationId);
                 const diffText = await fetchPRDiff(repoFullName, prNumber, dynamicToken);
 
                 if (diffText.length > 50000) {
-                    console.log("⚠️ Diff too large, skipping AI review to prevent API crash/limit exhaustion.");
+                    console.log("⚠️ Diff too large, skipping AI review.");
                     return;
                 }
 
                 console.log(`🧠 Sending diff to AI for dynamic analytics...`);
 
-                const customRules = userAccount.customPrompt 
-                    ? `\nCRITICAL USER INSTRUCTIONS (You MUST follow these):\n"""${userAccount.customPrompt}"""\n` 
+                const customRules = userAccount.customPrompt
+                    ? `\nCRITICAL USER INSTRUCTIONS (You MUST follow these):\n"""${userAccount.customPrompt}"""\n`
                     : "";
                 const prTitle = req.body.pull_request.title;
                 const prBody = req.body.pull_request.body || "No description provided.";
@@ -118,17 +125,18 @@ async function handleWebhook(req, res) {
 
                 console.log("✅ AI Review & Analytics generated.");
 
-                // 1. Post Comment Back to GitHub (Using the markdown part of the JSON)
+                // 1. Post Comment Back to GitHub
                 console.log(`📝 Posting comment to GitHub PR #${prNumber}...`);
-                const commentBody = `### 🤖 AI Code Review\n\n${reviewData.aiFeedback}`;
+                const commentBody = `### 🤖 AI Code Review (Commit: \`${currentSha.substring(0, 7)}\`)\n\n${reviewData.aiFeedback}`;
                 await postPRComment(repoFullName, prNumber, dynamicToken, commentBody);
 
-                // 2. Save Full Analytics to MongoDB (Using req.body correctly)
+                // 2. Save Full Analytics to MongoDB
                 console.log(`💾 Saving review & analytics to database...`);
                 const newReview = new Review({
                     installationId: req.body.installation.id.toString(),
                     repoName: repoFullName,
                     prNumber: prNumber,
+                    commitSha: currentSha, // 👈 NEW: Save the specific commit ID here!
                     prTitle: req.body.pull_request.title,
                     prAuthor: req.body.pull_request.user.login,
                     prUrl: req.body.pull_request.html_url,
@@ -144,7 +152,7 @@ async function handleWebhook(req, res) {
                 console.error("❌ Error processing PR:", error);
             }
         }
-    } catch(err) {
+    } catch (err) {
         console.error("❌ Fatal Webhook Error:", err.message);
         if (!res.headersSent) {
             res.status(500).send('Internal Server Error');

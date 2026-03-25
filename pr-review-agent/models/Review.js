@@ -11,19 +11,21 @@ const ReviewSchema = new mongoose.Schema({
   prUrl: { type: String },
 
   // AI Analytics
-  aiFeedback: { type: String, required: true }, // The full markdown comment
+  aiFeedback: { type: String, required: true },
   metrics: {
-    vulnerabilityCount: { type: Number, default: 0 }, // e.g., tracking XSS, injections, etc.
+    vulnerabilityCount: { type: Number, default: 0 },
     bugsFound: { type: Number, default: 0 },
     performanceIssues: { type: Number, default: 0 },
   },
   
-  // High-level tags for the frontend UI
   securityStatus: { 
     type: String, 
     enum: ['Clean', 'Warning', 'Critical'], 
     default: 'Clean' 
   },
+  
+  // 👇 FIXED: This tells MongoDB to expect a String, not a variable!
+  commitSha: { type: String, required: true }, 
   
   createdAt: { type: Date, default: Date.now, expires: '30d' }
 });
