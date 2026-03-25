@@ -70,7 +70,7 @@ async function handleWebhook(req, res) {
         }
 
         // --- EVENT B: PULL REQUEST ---
-        if (eventType === 'pull_request' && (action === 'opened' || action === 'reopened')) {
+        if (eventType === 'pull_request' && (action === 'opened' || action === 'reopened' || action === 'synchronize')) {
             const prNumber = req.body.pull_request.number;
             const repoFullName = req.body.repository.full_name;
             const installationId = req.body.installation.id;
