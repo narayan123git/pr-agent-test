@@ -28,7 +28,7 @@ const PORT = process.env.PORT || 3000;
 app.set('trust proxy', 1);
 
 app.use(cors({
-    origin: 'https://learnloop-frontend.vercel.app' // Strict CORS logic
+    origin: 'https://vercel.com/sonaipaul20-9769s-projects/pr-agent-test/u2SyvhxGwnUKV5VxctVNHY4E3yiJ' // Strict CORS logic
 }));
 
 // Connect to MongoDB
