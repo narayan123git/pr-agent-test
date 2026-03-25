@@ -8,8 +8,7 @@ import {
 } from 'lucide-react';
 import axios from 'axios';
 
-// ⚠️ Make sure your Express server is running on port 5000
-const BACKEND_URL = "http://localhost:5000";
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
 
 function DashboardContent() {
     const searchParams = useSearchParams();
@@ -51,10 +50,13 @@ function DashboardContent() {
                     // Fetch Settings
                     const profileRes = await axios.get(`${BACKEND_URL}/api/settings/${username}`, {
                         headers: { 'x-saas-secret': process.env.NEXT_PUBLIC_FRONTEND_SECRET }
+                        
                     }).catch(err => {
                         if (err.response?.status !== 404) console.error("Error fetching profile:", err);
                         return { data: null };
                     });
+
+                    // console.log('profileRes', profileRes);
                     
                     if (profileRes?.data) {
                         if (!urlInstallationId) setInstallationId(profileRes.data.installationId || '');

@@ -60,6 +60,15 @@ async function handleWebhook(req, res) {
             return;
         }
 
+        if (action === 'deleted') {
+            console.log(`🗑️ App Uninstalled by @${sender.login}`);
+            await Account.findOneAndUpdate(
+                { githubUsername: sender.login },
+                { installationId: "" }
+            );
+            return res.status(200).send("Installation ID removed");
+        }
+
         // --- EVENT B: PULL REQUEST ---
         if (eventType === 'pull_request' && (action === 'opened' || action === 'reopened')) {
             const prNumber = req.body.pull_request.number;

@@ -24,8 +24,9 @@ async function getSettings(req, res) {
     try {
         const clientSecret = req.headers['x-saas-secret'];
         if (clientSecret !== process.env.FRONTEND_SECRET) return res.status(401).json({ error: "Unauthorized" });
-
+        // console.log('req.params.username', req.params.username);
         const account = await Account.findOne({ githubUsername: String(req.params.username) });
+        // console.log('account', account);
         if (account) return res.status(200).json(account);
         res.status(404).json({ error: "Not found" });
     } catch (err) {
