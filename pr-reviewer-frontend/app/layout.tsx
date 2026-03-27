@@ -17,6 +17,9 @@ export const metadata: Metadata = {
   title: "AI PR Reviewer | Automated GitHub Code Analysis",
   description: "Automate your GitHub pull request reviews with Google Gemini AI. Catch bugs and security vulnerabilities instantly.",
   keywords: ["GitHub", "Pull Request", "Code Review", "AI", "Gemini", "Automated Code Review", "DevSecOps", "Programming"],
+  verification: {
+    google: "W_Jnv4c-3Gy-uMM1gRx5a4yyE8jQ-YAs0LmOuIvk0Ao",
+  },
   openGraph: {
     title: "AI PR Reviewer | Automated GitHub Code Analysis",
     description: "Automate your GitHub pull request reviews with Google Gemini AI. Catch bugs and security vulnerabilities instantly.",
