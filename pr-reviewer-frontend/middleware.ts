@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 export function middleware(request: NextRequest) {
-  const ip = request.ip || 'Unknown IP';
+  // In Next.js App Router, 'ip' is often extracted from the 'x-forwarded-for' header or 'x-real-ip'
+  const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'Unknown IP';
   const userAgent = request.headers.get('user-agent')?.toLowerCase() || '';
   const acceptLanguage = request.headers.get('accept-language');
 
