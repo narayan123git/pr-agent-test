@@ -7,8 +7,7 @@ import {
     GitPullRequest, ShieldAlert, Bug, Activity
 } from 'lucide-react';
 import axios from 'axios';
-
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
+import DOMPurify from 'dompurify';
 
 function DashboardContent() {
     const searchParams = useSearchParams();
@@ -48,10 +47,8 @@ function DashboardContent() {
 
                 try {
                     // Fetch Settings
-                    const profileRes = await axios.get(`${BACKEND_URL}/api/settings/${username}`, {
-                        headers: { 'x-saas-secret': process.env.NEXT_PUBLIC_FRONTEND_SECRET }
-                        
-                    }).catch(err => {
+                    const profileRes = await axios.get(`/api/proxy/settings?username=${username}`)
+                    .catch(err => {
                         if (err.response?.status !== 404) console.error("Error fetching profile:", err);
                         return { data: null };
                     });
@@ -65,10 +62,9 @@ function DashboardContent() {
                     }
 
                     // Fetch Reviews
-                    const reviewsRes = await axios.get(`${BACKEND_URL}/api/reviews/${username}`, {
-                        headers: { 'x-saas-secret': process.env.NEXT_PUBLIC_FRONTEND_SECRET }
-                    }).catch(err => {
-                        console.error("Error fetching reviews. Ensure backend is running.");
+                    const reviewsRes = await axios.get(`/api/proxy/reviews?username=${username}`)
+                    .catch(err => {
+                        console.error("Error fetching reviews.");
                         return { data: [] };
                     });
                     
@@ -91,21 +87,27 @@ function DashboardContent() {
             return alert("Please provide both an Installation ID and a Gemini Key.");
         }
 
+        // Prevent NoSQL Injection / Bad data format via strict Regex parsing (Only numbers)
+        if (!/^\d+$/.test(installationId.toString())) {
+            return alert("Security Block: Installation ID must contain only numbers.");
+        }
+
+        // Sanitize Prompt input to prevent XSS cross-site scripting
+        const cleanPrompt = DOMPurify.sanitize(customPrompt, { ALLOWED_TAGS: [], ALLOWED_ATTR: [] }); // Strip ALL HTML elements out
+
         setLoading(true);
         try {
-            await axios.post(`${BACKEND_URL}/api/settings`, {
+            await axios.post(`/api/proxy/settings`, {
                 // @ts-ignore
                 githubUsername: session?.user?.username,
                 installationId,
                 geminiKey,
-                customPrompt
-            }, {
-                headers: { 'x-saas-secret': process.env.NEXT_PUBLIC_FRONTEND_SECRET }
+                customPrompt: cleanPrompt
             });
             alert("✅ Secured settings saved! Your AI Reviewer is active.");
         } catch (error) {
             console.error(error);
-            alert("❌ Error saving settings. Check backend connection.");
+            alert("❌ Error saving settings. Check connection.");
         } finally {
             setLoading(false);
         }

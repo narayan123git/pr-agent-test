@@ -114,7 +114,7 @@ export default function Home() {
           Install the GitHub App in seconds and get instant AI-powered code reviews on your next Pull Request. No complex setup required.
         </p>
         <a 
-          href={process.env.NEXT_PUBLIC_GITHUB_APP_INSTALL_URL || "#"} 
+          href={process.env.GITHUB_APP_INSTALL_URL || "#"} 
           target="_blank" 
           rel="noreferrer"
           className="inline-flex items-center gap-2 bg-indigo-600 text-white font-bold text-lg px-8 py-4 rounded-2xl hover:bg-indigo-700 transition-colors"
