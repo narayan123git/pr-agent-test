@@ -1,4 +1,12 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# PR Reviewer Frontend Dashboard
+
+This is the Next.js SaaS dashboard for the AI-Powered GitHub Pull Request Reviewer, built with Next.js 16 (App Router) and deployed securely on Vercel. 
+
+## Features
+- **GitHub NextAuth:** Easy developer login.
+- **Server Proxies (`/api/proxy/`):** Keeps all `FRONTEND_SECRET` communications purely on the server.
+- **Vercel Edge Middleware:** Implements bot-blocking and payload limits at the CDN level using `middleware.ts`.
+- **Client Security:** Uses `DOMPurify` to clean UI input bounds before POSTing.
 
 ## Getting Started
 

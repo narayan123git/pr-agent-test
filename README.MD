@@ -9,6 +9,13 @@
 
 > An enterprise-grade GitHub App and SaaS platform that automates code reviews using **Google Gemini 2.5 Flash AI**. It acts as an automated Senior Software Engineer living directly in your repository — analyzing Pull Request diffs, identifying security vulnerabilities, and posting structured, contextual feedback back to your GitHub timeline in seconds.
 
+### 🛡️ Recent Security Updates (v2.0 Architecture)
+* **Vercel Edge WAF:** Next.js Edge Middleware natively blocks bot/DDoS attacks (`k6`, `jmeter`) and ReDoS buffer overlow attempts before they hit serverless functions.
+* **Server-Side API Proxies:** Frontend environment secrets are fully removed from the browser. Client requests pipe through safe Next.js proxy routes.
+* **Aggressive Parameter Sanitization:** Backend handles NoSQL injection blocking via `express-mongo-sanitize`, HTTP parameter pollution via `hpp`, and rejects large payload attacks.
+* **Client-side Protection:** Strict security headers enforce HSTS & Anti-clickjacking, while user inputs are filtered via `DOMPurify`.
+* **SEO & Branding Update:** Rebranded title and metadata: `AI PR Reviewer | Automated GitHub Code Analysis`.
+
 ---
 
 ## 📑 Table of Contents
@@ -157,7 +164,7 @@ This system provides a unified code-quality workflow integrated directly into Gi
 
 | Category | Requirement |
 |---|---|
-| **Security** | All webhook payloads validated using `X-Hub-Signature-256` HMAC before processing. |
+| **Security** | Payload HMAC validation, Next.js Edge Middleware for DDoS mitigation, XSS & NoSQL Injection blocking, strict HTTP headers, and proxy-routed API secrets. |
 | **Authentication** | OAuth 2.0 via GitHub (NextAuth). Short-lived GitHub App Installation Access Tokens generated per request. |
 | **Scalability** | Event-driven architecture allows the webhook handler to be extracted as a serverless function. |
 | **Performance** | AI review delivery target: under 30 seconds from PR event to posted comment. |
@@ -244,11 +251,11 @@ This system provides a unified code-quality workflow integrated directly into Gi
 
 | Layer | Technology |
 |---|---|
-| **Frontend** | Next.js 16 (App Router), TypeScript, Tailwind CSS v4, NextAuth.js (GitHub OAuth), Lucide React |
+| **Frontend** | Next.js 16 (App Router), TypeScript, Tailwind CSS v4, NextAuth.js, Vercel Edge Middleware |
 | **Backend** | Node.js, Express.js v5 |
 | **Database** | MongoDB (Mongoose ODM) |
 | **AI** | `@google/generative-ai` — Gemini 2.5 Flash |
-| **Security** | `crypto` (HMAC), `jsonwebtoken`, `helmet`, `express-rate-limit`, `cors` |
+| **Security** | `crypto` (HMAC), `helmet`, `express-rate-limit`, `dompurify`, `hpp`, `express-mongo-sanitize` |
 | **Dev Tools** | `nodemon`, `dotenv` |
 
 ### Prerequisites
@@ -341,7 +348,19 @@ Navigate to [http://localhost:3000](http://localhost:3000) to access the dashboa
 
 ---
 
-## 📡 API Reference
+## � Security
+
+Security is deeply integrated into every layer of this platform. For our comprehensive disclosure policy, see [SECURITY.md](SECURITY.md).
+
+**Key Defense Layers:**
+- **Code-First WAF (Edge):** Client-facing URLs are shielded by Vercel Edge Middleware. It intercepts traffic instantly, identifies load-runner bots (like *k6* and *JMeter*), truncates malicious buffer-overflow attempts, and drops packets at the CDN level.
+- **Frontend Hardening:** Sensitive keys (for the API) never reach the browser. Next.js server-side proxies carry out authorized actions. XSS is prevented via `DOMPurify` input scrubbing and regex-backed form validation.
+- **Backend Throttling & Sanitization:** Dual-layer `express-rate-limit` policies ensure webhook listeners and backend APIs are resilient to flooding. Packages like `express-mongo-sanitize` block NoSQL injections, and strict payload size checks drop gigabyte-sized DDoS packets. 
+- **Webhooks:** Every webhook received is cryptographically validated using `X-Hub-Signature-256` HMAC via the securely stored GitHub App Secret.
+
+---
+
+## �📡 API Reference
 
 The backend exposes the following REST endpoints:
 
@@ -467,7 +486,7 @@ Yes. When you install the GitHub App, you can grant it access to private reposit
 
 ---
 
-## 🗺 Roadmap
+## 🗺 Future objectives
 
 - [ ] **Inline Review Comments** — Post suggestions directly on specific diff lines instead of a single PR comment.
 - [ ] **Multi-model Support** — Allow users to choose between Gemini, OpenAI GPT-4o, and Anthropic Claude.

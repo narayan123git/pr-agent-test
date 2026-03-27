@@ -8,6 +8,21 @@ We prioritize security updates for the most recent versions of the PR-reviewer a
 | Main    | ✅ Yes              |
 | < 1.0.0 | ❌ No               |
 
+## 🚀 Built-in Security Features
+Our application implements top-tier, multi-layered "Defense in Depth" strategies including:
+
+### 1. Edge & Frontend Protections (Next.js)
+- **Vercel Edge Middleware:** Acts as a code-first WAF (Web Application Firewall). It filters incoming requests *before* waking up serverless functions, blocking known DDoS bots (`k6`, `jmeter`, `postmanruntime`, etc.) and preventing buffer overflows by sanitizing over-sized query strings at the edge.
+- **Strict HTTP Security Headers:** Enforced via `next.config.ts`, returning `Strict-Transport-Security` (HSTS), `X-Frame-Options` (preventing clickjacking), and `X-XSS-Protection`.
+- **API Proxy Routes:** The Next.js client does not store backend configuration secrets (like `FRONTEND_SECRET`). These are kept securely inside Next.js server-side `route.ts` handlers and proxied downstream.
+- **Client-Side Sanitization:** Direct inputs to customizable prompt fields are scrubbed of HTML tags safely via `DOMPurify` to mitigate reflected XSS.
+
+### 2. Backend API Fortifications (Express/Node.js)
+- **Multi-lane Rate Limiting:** A global rate limiter is applied to general routes, paired with a strict limiter strictly protecting API and webhook routes to block brute-force attempts and spam traffic.
+- **Payload Limits:** Requests payloads exceeding 500kb are outright rejected to prevent memory exhaustion and large-payload DDoS scenarios.
+- **NoSQL Injection Prevention:** Utilizes `express-mongo-sanitize` to strip prohibited characters (`$` and `.`) from req structures to safeguard MongoDB.
+- **HTTP Parameter Pollution Protection:** Implements `hpp` to ignore duplicated parameter trickery.
+
 ## 🚀 Reporting a Vulnerability
 If you discover a security vulnerability (such as AI prompt injection risks or exposed API handling), please do **not** open a public issue. Publicly disclosing a vulnerability can put all users of this agent at risk.
 
@@ -36,6 +51,7 @@ If the agent can be "tricked" into ignoring its system instructions or leaking i
 
 ### 4. Dependency Vulnerabilities
 Known vulnerabilities in our core stack (Node.js, Express, Next.js) that could lead to Remote Code Execution (RCE).
+
 
 ---
 
