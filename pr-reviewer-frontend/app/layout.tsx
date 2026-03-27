@@ -16,6 +16,31 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "AI PR Reviewer | Automated GitHub Code Analysis",
   description: "Automate your GitHub pull request reviews with Google Gemini AI. Catch bugs and security vulnerabilities instantly.",
+  keywords: ["GitHub", "Pull Request", "Code Review", "AI", "Gemini", "Automated Code Review", "DevSecOps", "Programming"],
+  openGraph: {
+    title: "AI PR Reviewer | Automated GitHub Code Analysis",
+    description: "Automate your GitHub pull request reviews with Google Gemini AI. Catch bugs and security vulnerabilities instantly.",
+    url: "https://pr-agent-test.vercel.app",
+    siteName: "AI PR Reviewer",
+    locale: "en_US",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "AI PR Reviewer | Automated GitHub Code Analysis",
+    description: "Automate your GitHub pull request reviews with Google Gemini AI.",
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
+  },
 };
 
 export default function RootLayout({
