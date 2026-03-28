@@ -4,8 +4,34 @@ const mongoose = require('mongoose');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const cors = require('cors');
-const mongoSanitize = require('express-mongo-sanitize');
 const hpp = require('hpp');
+
+function sanitizeMongoInput(value) {
+    if (!value || typeof value !== 'object') {
+        return;
+    }
+
+    if (Array.isArray(value)) {
+        value.forEach((item) => sanitizeMongoInput(item));
+        return;
+    }
+
+    for (const key of Object.keys(value)) {
+        if (key.startsWith('$') || key.includes('.')) {
+            delete value[key];
+            continue;
+        }
+
+        sanitizeMongoInput(value[key]);
+    }
+}
+
+function mongoSanitizeSafe(req, res, next) {
+    sanitizeMongoInput(req.body);
+    sanitizeMongoInput(req.params);
+    sanitizeMongoInput(req.query);
+    next();
+}
 
 // ==========================================
 // ⚙️ ENVIRONMENT VALIDATION
@@ -65,7 +91,7 @@ app.use(express.json({
 app.use(express.urlencoded({ extended: true, limit: '500kb' }));
 
 // 2. CLEAN: Now that req.body exists, scrub it for malicious code
-app.use(mongoSanitize()); // Strips out {"$gt": ""} NoSQL injections
+app.use(mongoSanitizeSafe); // Strips out Mongo operator keys without mutating req.query reference
 app.use(hpp());           // Cleans up polluted query strings (e.g., ?sort=id&sort=price)
 
 // 3. SECURE: Set strict HTTP headers
