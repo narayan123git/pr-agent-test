@@ -7,7 +7,9 @@ const cors = require('cors');
 const mongoSanitize = require('express-mongo-sanitize');
 const hpp = require('hpp');
 
-// Startup Environment Validation
+// ==========================================
+// ⚙️ ENVIRONMENT VALIDATION
+// ==========================================
 const requiredEnvVars = [
     'MONGODB_URI',
     'FRONTEND_SECRET',
@@ -21,44 +23,69 @@ for (const envVar of requiredEnvVars) {
     }
 }
 
+// ==========================================
+// 📦 CONTROLLERS
+// ==========================================
 const webhookController = require('./controllers/webhook.controller');
 const settingsController = require('./controllers/settings.controller');
 
+// ==========================================
+// 🚀 APP INITIALIZATION
+// ==========================================
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Required for Render/Vercel to properly identify client IPs for rate limiting
 app.set('trust proxy', 1);
 
+// Allow requests ONLY from your production Next.js frontend
 app.use(cors({
-    origin: 'https://pr-agent-test.vercel.app' // Strict CORS logic
+    origin: 'https://pr-agent-test.vercel.app' 
 }));
 
-// Connect to MongoDB
+// ==========================================
+// 🗄️ DATABASE CONNECTION
+// ==========================================
 mongoose.connect(process.env.MONGODB_URI)
     .then(() => console.log('📦 Successfully connected to MongoDB!'))
     .catch((err) => console.error('❌ MongoDB connection error:', err));
 
-// --- APPLY SECURITY MIDDLEWARE ---
-// 1. Helmet secures HTTP headers against common vulnerabilities
+
+// ==========================================
+// 🛡️ THE PERFECT MIDDLEWARE PIPELINE
+// ==========================================
+
+// 1. PARSE: Read the incoming data first (Limit to 500kb to prevent buffer overflows)
+app.use(express.json({
+    limit: '500kb', 
+    verify: (req, res, buf) => {
+        req.rawBody = buf; // Crucial for your HMAC Webhook validation later!
+    }
+}));
+app.use(express.urlencoded({ extended: true, limit: '500kb' }));
+
+// 2. CLEAN: Now that req.body exists, scrub it for malicious code
+app.use(mongoSanitize()); // Strips out {"$gt": ""} NoSQL injections
+app.use(hpp());           // Cleans up polluted query strings (e.g., ?sort=id&sort=price)
+
+// 3. SECURE: Set strict HTTP headers
 app.use(helmet({
-    // contentSecurityPolicy: process.env.NODE_ENV === "production" ? undefined : false,
     crossOriginEmbedderPolicy: false,
 }));
 
-// Apply Global Rate Limiting (Protects the entire server from being flooded)
+// 4. LIMIT: Now rate limit the requests so we don't get DDoS'd
 const globalLimiter = rateLimit({
-    windowMs: 10 * 60 * 1000, // 10 minute
-    max: 20, // Limit each IP to 10 requests per `window` (here, per 10 minute)
+    windowMs: 10 * 60 * 1000, // 10 minutes
+    max: 20, 
     message: 'Too many requests from this IP, please try again after a minute.',
     standardHeaders: true,
     legacyHeaders: false,
 });
 app.use(globalLimiter);
 
-// 2. Strict Rate Limiter for Sensitive Routes: Max 5 requests per 10 minutes per IP
 const strictLimiter = rateLimit({
     windowMs: 10 * 60 * 1000, // 10 minute window
-    max: 10, // Limit each IP to 10 requests per 10 minute
+    max: 10, 
     message: 'Too many requests created from this IP, please try again.',
     standardHeaders: true,
     legacyHeaders: false,
@@ -68,39 +95,29 @@ const strictLimiter = rateLimit({
     }
 });
 
-// Apply the limiter SPECIFICALLY to sensitive routes
+// Apply strict limits ONLY to API and Webhook routes
 app.use('/webhook', strictLimiter);
 app.use('/api/', strictLimiter);
 
-// 4. Data Sanitization against NoSQL query injection
-// If someone passes {"email": {"$gt": ""}} to bypass auth, this prevents it.
-app.use(mongoSanitize());
 
-// 5. Prevent HTTP Parameter Pollution
-// Cleans up query strings (e.g., ?sort=id&sort=price -> takes the last one)
-app.use(hpp());
+// ==========================================
+// 🚦 ROUTES
+// ==========================================
 
-// 3. Payload Size Limitation (Prevents Large Payload DDOS / Buffer Overflows)
-app.use(express.json({
-    limit: '500kb', // Reject JSON payloads larger than 500kb
-    verify: (req, res, buf) => {
-        req.rawBody = buf;
-    }
-}));
-app.use(express.urlencoded({ extended: true, limit: '500kb' }));
-
+// Webhook Endpoint (Receives payloads from GitHub)
 app.post('/webhook', webhookController.handleWebhook);
 
-// Endpoint to save or update user settings
-// 1. Save Settings (POST)
+// Settings Endpoints (Dashboard Preferences)
 app.post('/api/settings', settingsController.saveSettings);
-
-// 2. Fetch Settings (GET)
 app.get('/api/settings/:username', settingsController.getSettings);
 
-// ✅ ADD THIS: Fetch all AI reviews for a specific user's dashboard
+// Dashboard Reviews Endpoint (Fetch past AI reviews)
 app.get('/api/reviews/:username', settingsController.getReviews);
 
+
+// ==========================================
+// 🎧 START SERVER
+// ==========================================
 app.listen(PORT, () => {
     console.log(`🚀 PR Review Agent server is running on port ${PORT}`);
 });
